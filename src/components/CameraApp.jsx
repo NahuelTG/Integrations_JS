@@ -1,0 +1,59 @@
+// CameraApp.jsx
+
+import { useState, useEffect } from "react";
+
+import useCamera from "../hooks/useCamera.js";
+
+function CameraApp() {
+   const { isActive, videoRef, canvasRef, startCamera, stopCamera, capturePhoto } = useCamera();
+
+   const [capturedPhoto, setCapturedPhoto] = useState(null);
+
+   useEffect(() => {
+      startCamera();
+      return () => {
+         stopCamera();
+      };
+   }, [startCamera, stopCamera]);
+
+   const handleCapture = () => {
+      const photo = capturePhoto();
+      if (photo) {
+         setCapturedPhoto(photo);
+      }
+   };
+
+   return (
+      <div style={{ padding: "20px" }}>
+         <button onClick={stopCamera}>Atras</button>
+         <button onClick={handleCapture} style={{ marginLeft: "10px" }}>
+            Tomar Foto
+         </button>
+
+         {/* Video de la cámara */}
+         <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{
+               width: "100%",
+               maxWidth: "640px",
+               display: isActive ? "block" : "none",
+            }}
+         />
+
+         {/* Canvas oculto para captura */}
+         <canvas ref={canvasRef} style={{ display: "none" }} />
+
+         {/* Foto capturada */}
+         {capturedPhoto && (
+            <div style={{ marginTop: "20px" }}>
+               <h3>Foto Capturada:</h3>
+               <img src={capturedPhoto} alt="Foto capturada" style={{ width: "100%", maxWidth: "640px" }} />
+            </div>
+         )}
+      </div>
+   );
+}
+export default CameraApp;
