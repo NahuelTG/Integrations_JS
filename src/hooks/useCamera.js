@@ -58,7 +58,7 @@ function useCamera() {
    }, []);
 
    // 5. Función para capturar una foto
-   const capturePhoto = () => {
+   const capturePhoto = useCallback(() => {
       if (!videoRef.current || !canvasRef.current || !isActive) {
          setError("Cámara no disponible para capturar");
          return null;
@@ -76,9 +76,96 @@ function useCamera() {
       context.drawImage(video, 0, 0);
 
       // Convertimos el canvas a una imagen base64
-      const photoDataUrl = canvas.toDataURL("image/png");
+      const photoDataUrl = canvas.toDataURL("image/jpeg", 0.9);
       return photoDataUrl;
-   };
+   }, [isActive]);
+
+   const savePhoto = useCallback((photoDataUrl, filename) => {
+      if (!photoDataUrl) {
+         setError("No hay foto para guardar");
+         return false;
+      }
+
+      try {
+         // Crear elemento <a> temporal para descarga
+         const link = document.createElement("a");
+         link.href = photoDataUrl;
+
+         // Generar nombre del archivo
+         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+         const finalFilename = filename || `foto_${timestamp}.jpg`;
+
+         link.download = finalFilename;
+
+         // Simular click para descargar
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+
+         return true;
+      } catch (err) {
+         console.error("Error guardando foto:", err);
+         setError("Error al guardar la foto");
+         return false;
+      }
+   }, []);
+
+   const captureAndSave = useCallback(
+      (filename) => {
+         const photo = capturePhoto();
+         if (photo) {
+            const saved = savePhoto(photo, filename);
+            return { photo, saved };
+         }
+         return { photo: null, saved: false };
+      },
+      [capturePhoto, savePhoto]
+   );
+
+   // 8. Función para guardar en diferentes formatos - NUEVA
+   const savePhotoAs = useCallback((photoDataUrl, format = "jpeg", quality = 0.9, filename) => {
+      if (!photoDataUrl) {
+         setError("No hay foto para guardar");
+         return false;
+      }
+
+      try {
+         // Si ya es base64, convertir a blob y luego a nuevo formato
+         const canvas = document.createElement("canvas");
+         const ctx = canvas.getContext("2d");
+         const img = new Image();
+
+         img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            // Convertir a formato deseado
+            const mimeType = format === "png" ? "image/png" : "image/jpeg";
+            const newDataUrl = canvas.toDataURL(mimeType, quality);
+
+            // Descargar
+            const link = document.createElement("a");
+            link.href = newDataUrl;
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+            const extension = format === "png" ? ".png" : ".jpg";
+            const finalFilename = filename || `foto_${timestamp}${extension}`;
+
+            link.download = finalFilename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+         };
+
+         img.src = photoDataUrl;
+         return true;
+      } catch (err) {
+         console.error("Error guardando foto:", err);
+         setError("Error al guardar la foto");
+         return false;
+      }
+   }, []);
 
    const switchCamera = useCallback(async () => {
       stopCamera();
@@ -106,8 +193,12 @@ function useCamera() {
       // Funciones de control
       switchCamera,
       startCamera,
-      stopCamera,
       capturePhoto,
+      stopCamera,
+
+      savePhoto,
+      captureAndSave,
+      savePhotoAs,
    };
 }
 

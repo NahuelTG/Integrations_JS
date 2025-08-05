@@ -5,7 +5,8 @@ import { useNavigate } from "react-router";
 import useCamera from "../hooks/useCamera.js";
 
 function CameraApp() {
-   const { isActive, videoRef, canvasRef, startCamera, stopCamera, capturePhoto, switchCamera } = useCamera();
+   const { isActive, videoRef, canvasRef, startCamera, stopCamera, capturePhoto, switchCamera, savePhoto, captureAndSave, savePhotoAs } =
+      useCamera();
 
    const [capturedPhoto, setCapturedPhoto] = useState(null);
 
@@ -24,6 +25,23 @@ function CameraApp() {
       const photo = capturePhoto();
       if (photo) {
          setCapturedPhoto(photo);
+      }
+   };
+
+   const handleSavePhoto = () => {
+      if (capturedPhoto) {
+         const saved = savePhoto(capturedPhoto);
+         if (saved) {
+            alert("¡Foto guardada exitosamente!");
+            setCapturedPhoto(null); // Cerrar modal
+         }
+      }
+   };
+
+   const handleQuickSave = () => {
+      const result = captureAndSave();
+      if (result.saved) {
+         alert("¡Foto capturada y guardada!");
       }
    };
 
@@ -101,7 +119,7 @@ function CameraApp() {
             }}
          />
 
-         {/* Botón de captura - Parte inferior */}
+         {/* Botones de captura - Parte inferior */}
          <div
             style={{
                position: "absolute",
@@ -109,8 +127,29 @@ function CameraApp() {
                left: "50%",
                transform: "translateX(-50%)",
                zIndex: 10,
+               display: "flex",
+               gap: "20px",
+               alignItems: "center",
             }}
          >
+            {/* Botón captura rápida (captura y guarda directo) */}
+            <button
+               onClick={handleQuickSave}
+               style={{
+                  width: "50px",
+                  height: "50px",
+                  borderRadius: "50%",
+                  backgroundColor: "rgba(255, 255, 255, 0.2)",
+                  border: "2px solid white",
+                  cursor: "pointer",
+                  fontSize: "20px",
+                  color: "white",
+               }}
+            >
+               💾
+            </button>
+
+            {/* Botón captura normal */}
             <button
                onClick={handleCapture}
                style={{
@@ -159,13 +198,13 @@ function CameraApp() {
                   alt="Foto capturada"
                   style={{
                      maxWidth: "90%",
-                     maxHeight: "70%",
+                     maxHeight: "60%",
                      objectFit: "contain",
                      borderRadius: "10px",
                   }}
                />
 
-               <div style={{ marginTop: "20px", display: "flex", gap: "15px" }}>
+               <div style={{ marginTop: "20px", display: "flex", gap: "15px", flexWrap: "wrap", justifyContent: "center" }}>
                   <button
                      onClick={() => setCapturedPhoto(null)}
                      style={{
@@ -182,11 +221,7 @@ function CameraApp() {
                   </button>
 
                   <button
-                     onClick={() => {
-                        // Aquí puedes agregar lógica para guardar/enviar la foto
-                        console.log("Guardar foto:", capturedPhoto);
-                        setCapturedPhoto(null);
-                     }}
+                     onClick={handleSavePhoto}
                      style={{
                         padding: "12px 24px",
                         backgroundColor: "#44ff44",
@@ -197,7 +232,25 @@ function CameraApp() {
                         cursor: "pointer",
                      }}
                   >
-                     ✓ Guardar
+                     💾 Guardar JPG
+                  </button>
+
+                  <button
+                     onClick={() => {
+                        savePhotoAs(capturedPhoto, "png", 1.0);
+                        setCapturedPhoto(null);
+                     }}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#4444ff",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                     }}
+                  >
+                     🖼️ Guardar PNG
                   </button>
                </div>
             </div>
