@@ -3,10 +3,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 
 function useCamera() {
    // 1. Estados para manejar la cámara
-
-   const [isActive, setIsActive] = useState(false); // ¿Está la cámara encendida?
-   const [error, setError] = useState(null); // Errores que puedan ocurrir
-   const [hasPermission, setHasPermission] = useState(null); // null = no preguntado, true/false = respuesta
+   const [isActive, setIsActive] = useState(false);
+   const [error, setError] = useState(null);
+   const [hasPermission, setHasPermission] = useState(null);
+   const [currentFacingMode, setCurrentFacingMode] = useState("environment");
 
    // 2. Referencias para elementos del DOM
    const videoRef = useRef(null);
@@ -21,9 +21,9 @@ function useCamera() {
          // Pedimos acceso a la cámara
          const mediaStream = await navigator.mediaDevices.getUserMedia({
             video: {
-               width: 640,
-               height: 480,
-               facingMode: "user", // Cámara frontal
+               width: 1920,
+               height: 1080,
+               facingMode: { currentFacingMode },
             },
          });
          streamRef.current = mediaStream;
@@ -39,7 +39,7 @@ function useCamera() {
          setError("No se pudo acceder a la cámara");
          setHasPermission(false);
       }
-   }, []);
+   }, [currentFacingMode]);
 
    // 4. Función para detener la cámara
    const stopCamera = useCallback(() => {
@@ -75,6 +75,15 @@ function useCamera() {
       return photoDataUrl;
    };
 
+   const switchCamera = () => {
+      if (currentFacingMode === "user") {
+         setCurrentFacingMode("environment");
+      } else {
+         setCurrentFacingMode("user");
+         console.log("cambio");
+      }
+   };
+
    // 6. Cleanup automático cuando el componente se desmonta
    useEffect(() => {
       return () => {
@@ -82,7 +91,6 @@ function useCamera() {
       };
    }, [stopCamera]);
 
-   // 7. Retornamos todo lo que el componente necesita
    return {
       // Estados
       isActive,
@@ -94,6 +102,7 @@ function useCamera() {
       canvasRef,
 
       // Funciones de control
+      switchCamera,
       startCamera,
       stopCamera,
       capturePhoto,

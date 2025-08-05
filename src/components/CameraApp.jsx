@@ -6,7 +6,7 @@ import { useNavigate } from "react-router";
 import useCamera from "../hooks/useCamera.js";
 
 function CameraApp() {
-   const { isActive, videoRef, canvasRef, startCamera, stopCamera, capturePhoto } = useCamera();
+   const { isActive, videoRef, canvasRef, startCamera, stopCamera, capturePhoto, switchCamera } = useCamera();
 
    const [capturedPhoto, setCapturedPhoto] = useState(null);
 
@@ -16,7 +16,7 @@ function CameraApp() {
       startCamera();
    }, [startCamera]);
 
-   const HandleBackHome = () => {
+   const handleBackHome = () => {
       stopCamera;
       navigate("/");
    };
@@ -30,11 +30,11 @@ function CameraApp() {
 
    return (
       <div style={{ padding: "20px" }}>
-         <button onClick={HandleBackHome}>Atras</button>
+         <button onClick={handleBackHome}>Atras</button>
+         <button onClick={switchCamera}>Cambiar Camara</button>
          <button onClick={handleCapture} style={{ marginLeft: "10px" }}>
             Tomar Foto
          </button>
-
          {/* Video de la cámara */}
          <video
             ref={videoRef}
@@ -47,10 +47,8 @@ function CameraApp() {
                display: isActive ? "block" : "none",
             }}
          />
-
          {/* Canvas oculto para captura */}
          <canvas ref={canvasRef} style={{ display: "none" }} />
-
          {/* Foto capturada */}
          {capturedPhoto && (
             <div style={{ marginTop: "20px" }}>
