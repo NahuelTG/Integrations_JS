@@ -1,6 +1,7 @@
 // CameraApp.jsx
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 
 import useCamera from "../hooks/useCamera.js";
 
@@ -9,12 +10,16 @@ function CameraApp() {
 
    const [capturedPhoto, setCapturedPhoto] = useState(null);
 
+   const navigate = useNavigate();
+
    useEffect(() => {
       startCamera();
-      return () => {
-         stopCamera();
-      };
-   }, [startCamera, stopCamera]);
+   }, [startCamera]);
+
+   const HandleBackHome = () => {
+      stopCamera;
+      navigate("/");
+   };
 
    const handleCapture = () => {
       const photo = capturePhoto();
@@ -25,7 +30,7 @@ function CameraApp() {
 
    return (
       <div style={{ padding: "20px" }}>
-         <button onClick={stopCamera}>Atras</button>
+         <button onClick={HandleBackHome}>Atras</button>
          <button onClick={handleCapture} style={{ marginLeft: "10px" }}>
             Tomar Foto
          </button>
