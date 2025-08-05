@@ -14,32 +14,37 @@ function useCamera() {
    const streamRef = useRef(null);
 
    // 3. Función para iniciar la cámara
-   const startCamera = useCallback(async () => {
-      try {
-         setError(null); // Limpiamos errores previos
+   const startCamera = useCallback(
+      async (facingMode = currentFacingMode) => {
+         try {
+            setError(null);
 
-         // Pedimos acceso a la cámara
-         const mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: {
-               width: 1920,
-               height: 1080,
-               facingMode: { currentFacingMode },
-            },
-         });
-         streamRef.current = mediaStream;
-         setIsActive(true);
-         setHasPermission(true);
+            const constraints = {
+               video: {
+                  width: { ideal: 1920, max: 1920 },
+                  height: { ideal: 1080, max: 1080 },
+                  facingMode: facingMode,
+               },
+            };
+            const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
 
-         // Conectamos el stream al elemento video
-         if (videoRef.current) {
-            videoRef.current.srcObject = mediaStream;
+            streamRef.current = mediaStream;
+            setCurrentFacingMode(facingMode);
+            setIsActive(true);
+            setHasPermission(true);
+
+            // Conectamos el stream al elemento video
+            if (videoRef.current) {
+               videoRef.current.srcObject = mediaStream;
+            }
+         } catch (err) {
+            console.error("Error accediendo a la cámara:", err);
+            setError("No se pudo acceder a la cámara");
+            setHasPermission(false);
          }
-      } catch (err) {
-         console.error("Error accediendo a la cámara:", err);
-         setError("No se pudo acceder a la cámara");
-         setHasPermission(false);
-      }
-   }, [currentFacingMode]);
+      },
+      [currentFacingMode]
+   );
 
    // 4. Función para detener la cámara
    const stopCamera = useCallback(() => {
@@ -75,14 +80,11 @@ function useCamera() {
       return photoDataUrl;
    };
 
-   const switchCamera = () => {
-      if (currentFacingMode === "user") {
-         setCurrentFacingMode("environment");
-      } else {
-         setCurrentFacingMode("user");
-         console.log("cambio");
-      }
-   };
+   const switchCamera = useCallback(async () => {
+      stopCamera();
+      const newFacingMode = currentFacingMode === "user" ? "environment" : "user";
+      await startCamera(newFacingMode);
+   }, [currentFacingMode, stopCamera, startCamera]);
 
    // 6. Cleanup automático cuando el componente se desmonta
    useEffect(() => {
