@@ -1,23 +1,17 @@
-// hooks/useMindarThree.js
+// hooks/useMindarThree.js - Versión corregida sin getAnimationLoop
 import { useState, useEffect, useRef } from "react";
 import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import useCameraMind from "./useCameraMind.js";
 
-/**
- * Hook completo para MindAR con modelo 3D
- * Usa useCameraMind para la funcionalidad de cámara
- */
-function useMindarThree(modelPath, targetPath) {
+function useMindarThree(arModel, targetPath) {
    const [modelLoaded, setModelLoaded] = useState(false);
    const [modelError, setModelError] = useState(null);
 
    // Referencias para el modelo
-   const modelRef = useRef(null);
-   const mixerRef = useRef(null);
+   const arModelRef = useRef(null);
    const clockRef = useRef(new THREE.Clock());
+   const animationIdRef = useRef(null);
 
-   // Usar el hook de cámara (ahora con funcionalidades de captura)
    const {
       loading: cameraLoading,
       isTracking,
@@ -26,132 +20,178 @@ function useMindarThree(modelPath, targetPath) {
       captureCanvasRef,
       getAnchor,
       getThreeJS,
-      // 📸 Funciones de captura heredadas
       captureBasicPhoto,
       capturePhotoWithAR,
       savePhoto,
       quickSaveAR,
    } = useCameraMind(targetPath);
 
-   // Cargar modelo 3D
    useEffect(() => {
-      if (!modelPath || cameraLoading) return;
+      if (!arModel || cameraLoading) return;
 
-      const loadModel = async () => {
+      const loadARModel = async () => {
          try {
-            const loader = new GLTFLoader();
-            const gltf = await new Promise((resolve, reject) => {
-               loader.load(modelPath, resolve, undefined, reject);
-            });
+            console.log("🔄 Cargando modelo AR...");
 
-            const model = gltf.scene;
-            model.scale.set(0.1, 0.1, 0.1);
-            model.position.set(0, -0.2, 0);
-            model.visible = false;
+            // El modelo ya viene configurado desde el Factory
+            await arModel.load();
 
-            modelRef.current = model;
-
-            // Configurar animaciones
-            if (gltf.animations.length > 0) {
-               mixerRef.current = new THREE.AnimationMixer(model);
-               gltf.animations.forEach((clip) => {
-                  const action = mixerRef.current.clipAction(clip);
-                  action.play();
-               });
-            }
-
+            arModelRef.current = arModel;
             setModelLoaded(true);
+
+            console.log("✅ Modelo AR cargado exitosamente");
          } catch (err) {
-            console.error("Error cargando modelo:", err);
+            console.error("❌ Error cargando modelo AR:", err);
             setModelError(err.message);
          }
       };
 
-      loadModel();
-   }, [modelPath, cameraLoading]);
+      loadARModel();
 
-   // Agregar modelo al anchor cuando esté listo
+      return () => {
+         if (arModelRef.current) {
+            arModelRef.current.dispose();
+         }
+      };
+   }, [arModel, cameraLoading]);
+
    useEffect(() => {
-      if (!modelLoaded || !modelRef.current) return;
+      if (!modelLoaded || !arModelRef.current) return;
 
       const anchor = getAnchor();
       if (!anchor) return;
 
-      const model = modelRef.current;
+      const model = arModelRef.current;
 
-      // Agregar modelo al anchor
-      anchor.group.add(model);
+      model.addToAnchor(anchor);
 
-      // Configurar eventos de visibilidad
       const originalTargetFound = anchor.onTargetFound;
       const originalTargetLost = anchor.onTargetLost;
 
       anchor.onTargetFound = () => {
-         model.visible = true;
+         console.log("🎯 Target encontrado - mostrando modelo");
+         model.show();
          if (originalTargetFound) originalTargetFound();
       };
 
       anchor.onTargetLost = () => {
-         model.visible = false;
+         console.log("❌ Target perdido - ocultando modelo");
+         model.hide();
          if (originalTargetLost) originalTargetLost();
       };
 
       return () => {
-         // Limpiar al desmontar
-         anchor.group.remove(model);
+         model.removeFromAnchor(anchor);
       };
    }, [modelLoaded, getAnchor]);
 
-   // Loop de animación del modelo
    useEffect(() => {
-      if (!modelLoaded || !mixerRef.current) return;
+      if (!modelLoaded || !arModelRef.current) return;
 
       const threeJS = getThreeJS();
       if (!threeJS) return;
 
-      const { renderer } = threeJS;
-      const originalAnimationLoop = renderer.getAnimationLoop();
+      const { renderer, scene, camera } = threeJS;
 
-      // Extender el loop de animación para incluir el modelo
-      renderer.setAnimationLoop(() => {
+      const originalRender = () => {
+         renderer.render(scene, camera);
+      };
+
+      const customAnimationLoop = () => {
          const delta = clockRef.current.getDelta();
 
-         if (modelRef.current?.visible && mixerRef.current) {
-            mixerRef.current.update(delta);
+         if (arModelRef.current && arModelRef.current.isVisible) {
+            arModelRef.current.update(delta);
          }
 
-         // Ejecutar el loop original
-         if (originalAnimationLoop) {
-            originalAnimationLoop();
-         }
-      });
+         originalRender();
+
+         animationIdRef.current = requestAnimationFrame(customAnimationLoop);
+      };
+
+      if (!renderer.info.render.frame || renderer.info.render.frame === 0) {
+         console.log("🎬 Iniciando loop de animación personalizado");
+         customAnimationLoop();
+      } else {
+         // Si ya hay un loop, solo hooks into el existente
+         console.log("🔄 Hooking into loop existente");
+         const existingLoop = () => {
+            const delta = clockRef.current.getDelta();
+            if (arModelRef.current && arModelRef.current.isVisible) {
+               arModelRef.current.update(delta);
+            }
+         };
+
+         const intervalId = setInterval(existingLoop, 16);
+
+         return () => {
+            clearInterval(intervalId);
+         };
+      }
 
       return () => {
-         renderer.setAnimationLoop(originalAnimationLoop);
+         // Limpiar el loop personalizado
+         if (animationIdRef.current) {
+            cancelAnimationFrame(animationIdRef.current);
+            animationIdRef.current = null;
+         }
       };
    }, [modelLoaded, getThreeJS]);
 
-   // Estados combinados
    const loading = cameraLoading || !modelLoaded;
    const error = cameraError || modelError;
 
+   const getARModel = () => arModelRef.current;
+
+   const showModel = () => {
+      if (arModelRef.current) {
+         arModelRef.current.show();
+      }
+   };
+
+   const hideModel = () => {
+      if (arModelRef.current) {
+         arModelRef.current.hide();
+      }
+   };
+
+   const triggerModelAction = (actionName, ...params) => {
+      if (!arModelRef.current) return;
+
+      // Llamar método específico del modelo si existe
+      if (typeof arModelRef.current[actionName] === "function") {
+         arModelRef.current[actionName](...params);
+      } else {
+         console.warn(`Acción '${actionName}' no disponible para este modelo`);
+      }
+   };
+
    return {
+      // Estados básicos
       loading,
       isTracking,
       error,
       sceneRef,
 
+      // Funciones de captura
       captureCanvasRef,
       captureBasicPhoto,
       capturePhotoWithAR,
       savePhoto,
       quickSaveAR,
 
+      // Acceso a MindAR
       getAnchor,
       getThreeJS,
 
-      modelRef,
-      mixerRef,
+      // 🎮 Control del modelo AR
+      getARModel,
+      showModel,
+      hideModel,
+      triggerModelAction,
+
+      // Referencias para compatibilidad
+      modelRef: arModelRef,
    };
 }
 

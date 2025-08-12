@@ -1,15 +1,39 @@
-// CameraAppMindAR.jsx
-import { useState } from "react";
+// CameraAppMindAR.jsx - Usando sistema modular
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router";
 import useMindarThree from "../hooks/useMindarThree.js";
+import { ARModelFactory } from "../models/ARModelFactory.js";
 
 function CameraAppMindAR() {
    const navigate = useNavigate();
    const [capturedPhoto, setCapturedPhoto] = useState(null);
 
-   // 🎯 Usar el hook completo con todas las funcionalidades
-   const { loading, isTracking, error, sceneRef, captureCanvasRef, captureBasicPhoto, capturePhotoWithAR, savePhoto, quickSaveAR } =
-      useMindarThree("/assets/AR/wolf.glb", "/assets/AR/wolf.mind");
+   // 🎯 Crear modelo usando Factory Pattern
+   const wolfModel = useMemo(() => {
+      return ARModelFactory.createModel("wolf", {
+         // 🐺 Configuraciones específicas para este lobo
+         scale: { x: 0.12, y: 0.12, z: 0.12 },
+         position: { x: 0, y: -0.25, z: 0 },
+         rotation: { x: 0, y: Math.PI * 0.8, z: 0 },
+         animationSpeed: 1.5,
+         eyeGlow: true,
+         howlOnAppear: true,
+      });
+   }, []);
+
+   // 🎯 Usar el hook con el modelo configurado
+   const {
+      loading,
+      isTracking,
+      error,
+      sceneRef,
+      captureCanvasRef,
+      captureBasicPhoto,
+      capturePhotoWithAR,
+      savePhoto,
+      quickSaveAR,
+      triggerModelAction,
+   } = useMindarThree(wolfModel, "/assets/AR/wolf.mind");
 
    const handleBackHome = () => {
       navigate("/");
@@ -36,9 +60,18 @@ function CameraAppMindAR() {
       }
    };
 
+   // 🎬 Función para hacer que el lobo aúlle
+   const handleWolfHowl = () => {
+      if (isTracking) {
+         triggerModelAction("playHowlAnimation");
+         // Aquí podrías también reproducir un sonido
+         console.log("🐺 ¡El lobo está aullando!");
+      }
+   };
+
    const handleSavePhoto = (format = "jpeg") => {
       if (capturedPhoto) {
-         const saved = savePhoto(capturedPhoto, format, 0.9);
+         const saved = savePhoto(capturedPhoto, format, 0.95);
          if (saved) {
             alert(`¡Foto guardada como ${format.toUpperCase()}!`);
             setCapturedPhoto(null);
@@ -148,8 +181,8 @@ function CameraAppMindAR() {
                      repeatCount="indefinite"
                   />
                </svg>
-               <p style={{ fontSize: "1.3em", fontWeight: "600", marginBottom: "12px" }}>Cargando Experiencia AR del Lobo...</p>
-               <p style={{ fontSize: "1em", color: "#D1D5DB" }}>Por favor, espera un momento.</p>
+               <p style={{ fontSize: "1.3em", fontWeight: "600", marginBottom: "12px" }}>Cargando Lobo AR Modular...</p>
+               <p style={{ fontSize: "1em", color: "#D1D5DB" }}>Configurando modelo personalizado...</p>
             </div>
          )}
 
@@ -184,6 +217,25 @@ function CameraAppMindAR() {
                   >
                      ← Atrás
                   </button>
+
+                  {/* 🎬 Botón para hacer aullar al lobo */}
+                  {isTracking && (
+                     <button
+                        onClick={handleWolfHowl}
+                        style={{
+                           padding: "12px 20px",
+                           backgroundColor: "rgba(255, 100, 0, 0.8)",
+                           color: "white",
+                           border: "none",
+                           borderRadius: "25px",
+                           fontSize: "16px",
+                           cursor: "pointer",
+                           backdropFilter: "blur(10px)",
+                        }}
+                     >
+                        🐺 Aullar
+                     </button>
+                  )}
 
                   {/* Indicador de tracking */}
                   <div
@@ -289,8 +341,8 @@ function CameraAppMindAR() {
                >
                   <p style={{ margin: 0, fontSize: "16px" }}>
                      {isTracking
-                        ? "🎉 ¡Lobo AR detectado! Toma una foto con el modelo 3D"
-                        : "📱 Apunta la cámara al target del lobo para activar AR"}
+                        ? "🎉 ¡Lobo AR modular activo! Toca 'Aullar' para interactuar"
+                        : "📱 Apunta la cámara al target para activar el lobo AR"}
                   </p>
                </div>
             </>
@@ -317,7 +369,7 @@ function CameraAppMindAR() {
                   padding: "20px",
                }}
             >
-               <h3 style={{ color: "white", marginBottom: "20px", fontSize: "24px" }}>🐺 Foto AR del Lobo Capturada</h3>
+               <h3 style={{ color: "white", marginBottom: "20px", fontSize: "24px" }}>🐺 Foto AR del Lobo Modular Capturada</h3>
 
                <img
                   src={capturedPhoto}
