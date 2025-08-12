@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import * as THREE from "three";
 
 import useCamera from "../hooks/useCamera.js";
 
