@@ -1,15 +1,49 @@
 // CameraAppMindAR.jsx
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import useMindarThree from "../hooks/useMindarThree.js";
 
 function CameraAppMindAR() {
    const navigate = useNavigate();
+   const [capturedPhoto, setCapturedPhoto] = useState(null);
 
-   // 🎯 Usar el hook simplificado
-   const { loading, isTracking, error, sceneRef } = useMindarThree("/assets/AR/wolf.glb", "/assets/AR/wolf.mind");
+   // 🎯 Usar el hook completo con todas las funcionalidades
+   const { loading, isTracking, error, sceneRef, captureCanvasRef, captureBasicPhoto, capturePhotoWithAR, savePhoto, quickSaveAR } =
+      useMindarThree("/assets/AR/wolf.glb", "/assets/AR/wolf.mind");
 
    const handleBackHome = () => {
       navigate("/");
+   };
+
+   const handleBasicCapture = () => {
+      const photo = captureBasicPhoto();
+      if (photo) {
+         setCapturedPhoto(photo);
+      }
+   };
+
+   const handleCaptureWithAR = () => {
+      const photo = capturePhotoWithAR();
+      if (photo) {
+         setCapturedPhoto(photo);
+      }
+   };
+
+   const handleQuickSaveAR = () => {
+      const saved = quickSaveAR();
+      if (saved) {
+         alert("¡Foto AR del lobo capturada y guardada!");
+      }
+   };
+
+   const handleSavePhoto = (format = "jpeg") => {
+      if (capturedPhoto) {
+         const saved = savePhoto(capturedPhoto, format, 0.9);
+         if (saved) {
+            alert(`¡Foto guardada como ${format.toUpperCase()}!`);
+            setCapturedPhoto(null);
+         }
+      }
    };
 
    // Mostrar error si hay algún problema
@@ -166,6 +200,77 @@ function CameraAppMindAR() {
                   </div>
                </div>
 
+               {/* Botones de captura */}
+               <div
+                  style={{
+                     position: "absolute",
+                     bottom: "100px",
+                     left: "50%",
+                     transform: "translateX(-50%)",
+                     zIndex: 1000,
+                     display: "flex",
+                     gap: "20px",
+                     alignItems: "center",
+                  }}
+               >
+                  {/* 🎯 Captura rápida AR */}
+                  <button
+                     onClick={handleQuickSaveAR}
+                     style={{
+                        width: "50px",
+                        height: "50px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(255, 255, 255, 0.2)",
+                        border: "2px solid white",
+                        cursor: "pointer",
+                        fontSize: "20px",
+                        color: "white",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     💾
+                  </button>
+
+                  {/* 🎯 Captura con AR del lobo */}
+                  <button
+                     onClick={handleCaptureWithAR}
+                     style={{
+                        width: "50px",
+                        height: "50px",
+                        borderRadius: "50%",
+                        backgroundColor: isTracking ? "rgba(0, 255, 136, 0.3)" : "rgba(255, 136, 0, 0.3)",
+                        border: `2px solid ${isTracking ? "#00ff88" : "#ff8800"}`,
+                        cursor: "pointer",
+                        fontSize: "20px",
+                        color: isTracking ? "#00ff88" : "#ff8800",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     🐺
+                  </button>
+
+                  {/* Captura básica (sin AR) */}
+                  <button
+                     onClick={handleBasicCapture}
+                     style={{
+                        width: "70px",
+                        height: "70px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        border: "4px solid rgba(255, 255, 255, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     📷
+                  </button>
+               </div>
+
                {/* Mensaje de instrucciones */}
                <div
                   style={{
@@ -184,11 +289,106 @@ function CameraAppMindAR() {
                >
                   <p style={{ margin: 0, fontSize: "16px" }}>
                      {isTracking
-                        ? "🎉 ¡Lobo AR detectado! Mueve tu dispositivo para explorar"
+                        ? "🎉 ¡Lobo AR detectado! Toma una foto con el modelo 3D"
                         : "📱 Apunta la cámara al target del lobo para activar AR"}
                   </p>
                </div>
             </>
+         )}
+
+         {/* Canvas oculto para captura */}
+         <canvas ref={captureCanvasRef} style={{ display: "none" }} />
+
+         {/* Modal de foto capturada */}
+         {capturedPhoto && (
+            <div
+               style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "rgba(0, 0, 0, 0.9)",
+                  zIndex: 2000,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "20px",
+               }}
+            >
+               <h3 style={{ color: "white", marginBottom: "20px", fontSize: "24px" }}>🐺 Foto AR del Lobo Capturada</h3>
+
+               <img
+                  src={capturedPhoto}
+                  alt="Foto AR capturada"
+                  style={{
+                     maxWidth: "90%",
+                     maxHeight: "60%",
+                     objectFit: "contain",
+                     borderRadius: "15px",
+                     boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+                  }}
+               />
+
+               <div
+                  style={{
+                     marginTop: "30px",
+                     display: "flex",
+                     gap: "15px",
+                     flexWrap: "wrap",
+                     justifyContent: "center",
+                  }}
+               >
+                  <button
+                     onClick={() => setCapturedPhoto(null)}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#ff4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     ✕ Descartar
+                  </button>
+
+                  <button
+                     onClick={() => handleSavePhoto("jpeg")}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#44ff44",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     💾 Guardar JPG
+                  </button>
+
+                  <button
+                     onClick={() => handleSavePhoto("png")}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#4444ff",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     🖼️ Guardar PNG
+                  </button>
+               </div>
+            </div>
          )}
       </div>
    );

@@ -1,20 +1,39 @@
 // hooks/useMindarThree.js
 import { useState, useEffect, useRef } from "react";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import * as THREE from "three";
-
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import useCameraMind from "./useCameraMind.js";
 
+/**
+ * Hook completo para MindAR con modelo 3D
+ * Usa useCameraMind para la funcionalidad de cámara
+ */
 function useMindarThree(modelPath, targetPath) {
    const [modelLoaded, setModelLoaded] = useState(false);
    const [modelError, setModelError] = useState(null);
 
+   // Referencias para el modelo
    const modelRef = useRef(null);
    const mixerRef = useRef(null);
    const clockRef = useRef(new THREE.Clock());
 
-   const { loading: cameraLoading, isTracking, error: cameraError, sceneRef, getAnchor, getThreeJS } = useCameraMind(targetPath);
+   // Usar el hook de cámara (ahora con funcionalidades de captura)
+   const {
+      loading: cameraLoading,
+      isTracking,
+      error: cameraError,
+      sceneRef,
+      captureCanvasRef,
+      getAnchor,
+      getThreeJS,
+      // 📸 Funciones de captura heredadas
+      captureBasicPhoto,
+      capturePhotoWithAR,
+      savePhoto,
+      quickSaveAR,
+   } = useCameraMind(targetPath);
 
+   // Cargar modelo 3D
    useEffect(() => {
       if (!modelPath || cameraLoading) return;
 
@@ -32,6 +51,7 @@ function useMindarThree(modelPath, targetPath) {
 
             modelRef.current = model;
 
+            // Configurar animaciones
             if (gltf.animations.length > 0) {
                mixerRef.current = new THREE.AnimationMixer(model);
                gltf.animations.forEach((clip) => {
@@ -50,6 +70,7 @@ function useMindarThree(modelPath, targetPath) {
       loadModel();
    }, [modelPath, cameraLoading]);
 
+   // Agregar modelo al anchor cuando esté listo
    useEffect(() => {
       if (!modelLoaded || !modelRef.current) return;
 
@@ -58,8 +79,10 @@ function useMindarThree(modelPath, targetPath) {
 
       const model = modelRef.current;
 
+      // Agregar modelo al anchor
       anchor.group.add(model);
 
+      // Configurar eventos de visibilidad
       const originalTargetFound = anchor.onTargetFound;
       const originalTargetLost = anchor.onTargetLost;
 
@@ -74,6 +97,7 @@ function useMindarThree(modelPath, targetPath) {
       };
 
       return () => {
+         // Limpiar al desmontar
          anchor.group.remove(model);
       };
    }, [modelLoaded, getAnchor]);
@@ -116,6 +140,18 @@ function useMindarThree(modelPath, targetPath) {
       isTracking,
       error,
       sceneRef,
+
+      captureCanvasRef,
+      captureBasicPhoto,
+      capturePhotoWithAR,
+      savePhoto,
+      quickSaveAR,
+
+      getAnchor,
+      getThreeJS,
+
+      modelRef,
+      mixerRef,
    };
 }
 
