@@ -9,6 +9,9 @@ export const Home = () => {
    const HandleCameraThree = () => {
       navigate("/camera_three");
    };
+   const HandleCameraMind = () => {
+      navigate("/camera_mind");
+   };
 
    return (
       <>
@@ -16,6 +19,7 @@ export const Home = () => {
          <section>
             <button onClick={HandleCamera}>Probar Camara</button>
             <button onClick={HandleCameraThree}>Probar Camara Three</button>
+            <button onClick={HandleCameraMind}>Probar Camara Mind</button>
          </section>
       </>
    );

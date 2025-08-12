@@ -1,0 +1,397 @@
+// CameraAppMindAR.jsx
+import { useState } from "react";
+import { useNavigate } from "react-router";
+import useMindarThree from "../hooks/useMindarThree.js";
+
+function CameraAppMindAR() {
+   const navigate = useNavigate();
+   const [capturedPhoto, setCapturedPhoto] = useState(null);
+
+   // 🎯 Usar el hook completo con todas las funcionalidades
+   const { loading, isTracking, error, sceneRef, captureCanvasRef, captureBasicPhoto, capturePhotoWithAR, savePhoto, quickSaveAR } =
+      useMindarThree("/assets/AR/wolf.glb", "/assets/AR/wolf.mind");
+
+   const handleBackHome = () => {
+      navigate("/");
+   };
+
+   const handleBasicCapture = () => {
+      const photo = captureBasicPhoto();
+      if (photo) {
+         setCapturedPhoto(photo);
+      }
+   };
+
+   const handleCaptureWithAR = () => {
+      const photo = capturePhotoWithAR();
+      if (photo) {
+         setCapturedPhoto(photo);
+      }
+   };
+
+   const handleQuickSaveAR = () => {
+      const saved = quickSaveAR();
+      if (saved) {
+         alert("¡Foto AR del lobo capturada y guardada!");
+      }
+   };
+
+   const handleSavePhoto = (format = "jpeg") => {
+      if (capturedPhoto) {
+         const saved = savePhoto(capturedPhoto, format, 0.9);
+         if (saved) {
+            alert(`¡Foto guardada como ${format.toUpperCase()}!`);
+            setCapturedPhoto(null);
+         }
+      }
+   };
+
+   // Mostrar error si hay algún problema
+   if (error) {
+      return (
+         <div
+            style={{
+               width: "100vw",
+               height: "100vh",
+               display: "flex",
+               flexDirection: "column",
+               alignItems: "center",
+               justifyContent: "center",
+               backgroundColor: "#000",
+               color: "white",
+               padding: "20px",
+               textAlign: "center",
+            }}
+         >
+            <h2>❌ Error en AR del Lobo</h2>
+            <p>{error}</p>
+            <button
+               onClick={() => window.location.reload()}
+               style={{
+                  padding: "12px 24px",
+                  backgroundColor: "#44ff44",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "25px",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  marginTop: "20px",
+               }}
+            >
+               🔄 Recargar
+            </button>
+            <button
+               onClick={handleBackHome}
+               style={{
+                  padding: "12px 24px",
+                  backgroundColor: "#ff4444",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "25px",
+                  fontSize: "16px",
+                  cursor: "pointer",
+                  marginTop: "10px",
+               }}
+            >
+               ← Volver
+            </button>
+         </div>
+      );
+   }
+
+   return (
+      <div
+         ref={sceneRef}
+         style={{
+            width: "100vw",
+            height: "100vh",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            overflow: "hidden",
+         }}
+      >
+         {/* Loading screen */}
+         {loading && (
+            <div
+               style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(20, 20, 20, 0.95)",
+                  color: "white",
+                  zIndex: 10,
+                  fontFamily: "system-ui, Avenir, Helvetica, Arial, sans-serif",
+               }}
+            >
+               <svg
+                  aria-hidden="true"
+                  style={{ width: "60px", height: "60px", marginBottom: "24px", color: "#EAB308" }}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+               >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                  <animateTransform
+                     attributeName="transform"
+                     type="rotate"
+                     from="0 12 12"
+                     to="360 12 12"
+                     dur="1.2s"
+                     repeatCount="indefinite"
+                  />
+               </svg>
+               <p style={{ fontSize: "1.3em", fontWeight: "600", marginBottom: "12px" }}>Cargando Experiencia AR del Lobo...</p>
+               <p style={{ fontSize: "1em", color: "#D1D5DB" }}>Por favor, espera un momento.</p>
+            </div>
+         )}
+
+         {/* Controles básicos - Solo mostrar cuando no esté cargando */}
+         {!loading && (
+            <>
+               {/* Controles superiores */}
+               <div
+                  style={{
+                     position: "absolute",
+                     top: "20px",
+                     left: "20px",
+                     right: "20px",
+                     zIndex: 1000,
+                     display: "flex",
+                     justifyContent: "space-between",
+                     alignItems: "center",
+                  }}
+               >
+                  <button
+                     onClick={handleBackHome}
+                     style={{
+                        padding: "12px 20px",
+                        backgroundColor: "rgba(0, 0, 0, 0.8)",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     ← Atrás
+                  </button>
+
+                  {/* Indicador de tracking */}
+                  <div
+                     style={{
+                        padding: "8px 16px",
+                        backgroundColor: isTracking ? "rgba(0, 255, 0, 0.8)" : "rgba(255, 0, 0, 0.8)",
+                        color: "white",
+                        borderRadius: "15px",
+                        fontSize: "14px",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     {isTracking ? "🐺 Lobo Detectado" : "🔍 Buscar Target del Lobo"}
+                  </div>
+               </div>
+
+               {/* Botones de captura */}
+               <div
+                  style={{
+                     position: "absolute",
+                     bottom: "100px",
+                     left: "50%",
+                     transform: "translateX(-50%)",
+                     zIndex: 1000,
+                     display: "flex",
+                     gap: "20px",
+                     alignItems: "center",
+                  }}
+               >
+                  {/* 🎯 Captura rápida AR */}
+                  <button
+                     onClick={handleQuickSaveAR}
+                     style={{
+                        width: "50px",
+                        height: "50px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(255, 255, 255, 0.2)",
+                        border: "2px solid white",
+                        cursor: "pointer",
+                        fontSize: "20px",
+                        color: "white",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     💾
+                  </button>
+
+                  {/* 🎯 Captura con AR del lobo */}
+                  <button
+                     onClick={handleCaptureWithAR}
+                     style={{
+                        width: "50px",
+                        height: "50px",
+                        borderRadius: "50%",
+                        backgroundColor: isTracking ? "rgba(0, 255, 136, 0.3)" : "rgba(255, 136, 0, 0.3)",
+                        border: `2px solid ${isTracking ? "#00ff88" : "#ff8800"}`,
+                        cursor: "pointer",
+                        fontSize: "20px",
+                        color: isTracking ? "#00ff88" : "#ff8800",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     🐺
+                  </button>
+
+                  {/* Captura básica (sin AR) */}
+                  <button
+                     onClick={handleBasicCapture}
+                     style={{
+                        width: "70px",
+                        height: "70px",
+                        borderRadius: "50%",
+                        backgroundColor: "rgba(255, 255, 255, 0.9)",
+                        border: "4px solid rgba(255, 255, 255, 0.3)",
+                        cursor: "pointer",
+                        fontSize: "24px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: "0 0 20px rgba(0, 0, 0, 0.5)",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     📷
+                  </button>
+               </div>
+
+               {/* Mensaje de instrucciones */}
+               <div
+                  style={{
+                     position: "absolute",
+                     bottom: "30px",
+                     left: "50%",
+                     transform: "translateX(-50%)",
+                     zIndex: 1000,
+                     textAlign: "center",
+                     color: "white",
+                     backgroundColor: "rgba(0, 0, 0, 0.7)",
+                     padding: "15px 25px",
+                     borderRadius: "20px",
+                     backdropFilter: "blur(10px)",
+                  }}
+               >
+                  <p style={{ margin: 0, fontSize: "16px" }}>
+                     {isTracking
+                        ? "🎉 ¡Lobo AR detectado! Toma una foto con el modelo 3D"
+                        : "📱 Apunta la cámara al target del lobo para activar AR"}
+                  </p>
+               </div>
+            </>
+         )}
+
+         {/* Canvas oculto para captura */}
+         <canvas ref={captureCanvasRef} style={{ display: "none" }} />
+
+         {/* Modal de foto capturada */}
+         {capturedPhoto && (
+            <div
+               style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "rgba(0, 0, 0, 0.9)",
+                  zIndex: 2000,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "20px",
+               }}
+            >
+               <h3 style={{ color: "white", marginBottom: "20px", fontSize: "24px" }}>🐺 Foto AR del Lobo Capturada</h3>
+
+               <img
+                  src={capturedPhoto}
+                  alt="Foto AR capturada"
+                  style={{
+                     maxWidth: "90%",
+                     maxHeight: "60%",
+                     objectFit: "contain",
+                     borderRadius: "15px",
+                     boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5)",
+                  }}
+               />
+
+               <div
+                  style={{
+                     marginTop: "30px",
+                     display: "flex",
+                     gap: "15px",
+                     flexWrap: "wrap",
+                     justifyContent: "center",
+                  }}
+               >
+                  <button
+                     onClick={() => setCapturedPhoto(null)}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#ff4444",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     ✕ Descartar
+                  </button>
+
+                  <button
+                     onClick={() => handleSavePhoto("jpeg")}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#44ff44",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     💾 Guardar JPG
+                  </button>
+
+                  <button
+                     onClick={() => handleSavePhoto("png")}
+                     style={{
+                        padding: "12px 24px",
+                        backgroundColor: "#4444ff",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "25px",
+                        fontSize: "16px",
+                        cursor: "pointer",
+                        backdropFilter: "blur(10px)",
+                     }}
+                  >
+                     🖼️ Guardar PNG
+                  </button>
+               </div>
+            </div>
+         )}
+      </div>
+   );
+}
+
+export default CameraAppMindAR;
