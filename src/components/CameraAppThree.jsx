@@ -1,25 +1,14 @@
 // CameraApp.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import * as THREE from "three";
 
 import useThreeScene from "../hooks/useThreeScene.js";
-import useCamera from "../hooks/useCamera.js";
+import useCameraThree from "../hooks/useCameraThree.js";
 import useCube from "../hooks/useCube.js";
 
 function CameraAppThree() {
-   const {
-      isActive,
-      videoRef,
-      canvasRef: captureCanvasRef,
-      startCamera,
-      stopCamera,
-      capturePhoto,
-      switchCamera,
-      savePhoto,
-      captureAndSave,
-      savePhotoAs,
-   } = useCamera();
+   const { isActive, videoRef, captureCanvasRef, startCamera, stopCamera, switchCamera, captureBasicPhoto, capturePhotoWith3D, savePhoto } =
+      useCameraThree();
 
    const { threeCanvasRef, sceneRef, rendererRef, cameraRef, sceneReady, cleanup } = useThreeScene();
 
@@ -40,77 +29,37 @@ function CameraAppThree() {
       navigate("/");
    };
 
-   const handleCapture = () => {
-      const photo = capturePhoto();
+   const handleBasicCapture = () => {
+      const photo = captureBasicPhoto();
       if (photo) {
          setCapturedPhoto(photo);
       }
-   };
-
-   const handleSavePhoto = () => {
-      if (capturedPhoto) {
-         const saved = savePhoto(capturedPhoto);
-         if (saved) {
-            alert("¡Foto guardada exitosamente!");
-            setCapturedPhoto(null);
-         }
-      }
-   };
-
-   const handleQuickSave = () => {
-      const result = captureAndSave();
-      if (result.saved) {
-         alert("¡Foto capturada y guardada!");
-      }
-   };
-
-   const capturePhotoWith3D = () => {
-      if (!videoRef.current || !captureCanvasRef.current || !rendererRef.current) {
-         console.log("Referencias no disponibles para captura 3D");
-         return null;
-      }
-
-      const video = videoRef.current;
-      const canvas = captureCanvasRef.current;
-      const context = canvas.getContext("2d");
-
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      context.drawImage(video, 0, 0);
-
-      if (showCube && rendererRef.current && sceneRef.current && cameraRef.current) {
-         try {
-            const tempCanvas = document.createElement("canvas");
-            tempCanvas.width = video.videoWidth;
-            tempCanvas.height = video.videoHeight;
-
-            const tempRenderer = new THREE.WebGLRenderer({
-               canvas: tempCanvas,
-               alpha: true,
-            });
-            tempRenderer.setSize(video.videoWidth, video.videoHeight);
-            tempRenderer.setClearColor(0x000000, 0);
-
-            const tempCamera = new THREE.PerspectiveCamera(75, video.videoWidth / video.videoHeight, 0.1, 1000);
-            tempCamera.position.z = 5;
-
-            tempRenderer.render(sceneRef.current, tempCamera);
-            context.drawImage(tempCanvas, 0, 0);
-
-            tempRenderer.dispose();
-         } catch (error) {
-            console.error("Error en captura 3D:", error);
-         }
-      }
-
-      return canvas.toDataURL("image/jpeg", 0.9);
    };
 
    const handleCaptureWith3D = () => {
-      const photo = capturePhotoWith3D();
+      const photo = capturePhotoWith3D(sceneRef, rendererRef, cameraRef, showCube);
       if (photo) {
          setCapturedPhoto(photo);
+      }
+   };
+
+   const handleQuickSave3D = () => {
+      const photo = capturePhotoWith3D(sceneRef, rendererRef, cameraRef, showCube);
+      if (photo) {
+         const saved = savePhoto(photo, "jpeg", 0.9);
+         if (saved) {
+            alert("¡Foto AR capturada y guardada!");
+         }
+      }
+   };
+
+   const handleSavePhoto = (format = "jpeg") => {
+      if (capturedPhoto) {
+         const saved = savePhoto(capturedPhoto, format, 0.9);
+         if (saved) {
+            alert(`¡Foto guardada como ${format.toUpperCase()}!`);
+            setCapturedPhoto(null);
+         }
       }
    };
 
@@ -224,7 +173,7 @@ function CameraAppThree() {
             }}
          />
 
-         {/* Canvas de Three.js - SEPARADO y SIEMPRE VISIBLE cuando sceneReady */}
+         {/* Canvas de Three.js */}
          <canvas
             ref={threeCanvasRef}
             style={{
@@ -235,7 +184,7 @@ function CameraAppThree() {
                height: "100%",
                pointerEvents: "none",
                zIndex: 10,
-               display: sceneReady ? "block" : "none", // Mostrar siempre que esté listo
+               display: sceneReady ? "block" : "none",
             }}
          />
 
@@ -252,24 +201,25 @@ function CameraAppThree() {
                alignItems: "center",
             }}
          >
-            {/* Captura rápida */}
+            {/* 🎯 Captura rápida AR */}
             <button
-               onClick={handleQuickSave}
+               onClick={handleQuickSave3D}
+               disabled={!sceneReady}
                style={{
                   width: "50px",
                   height: "50px",
                   borderRadius: "50%",
-                  backgroundColor: "rgba(255, 255, 255, 0.2)",
-                  border: "2px solid white",
-                  cursor: "pointer",
+                  backgroundColor: sceneReady ? "rgba(255, 255, 255, 0.2)" : "rgba(100, 100, 100, 0.3)",
+                  border: `2px solid ${sceneReady ? "white" : "#666"}`,
+                  cursor: sceneReady ? "pointer" : "not-allowed",
                   fontSize: "20px",
-                  color: "white",
+                  color: sceneReady ? "white" : "#666",
                }}
             >
                💾
             </button>
 
-            {/* Captura con cubo 3D */}
+            {/* 🎯 Captura con cubo 3D */}
             <button
                onClick={handleCaptureWith3D}
                disabled={!sceneReady}
@@ -287,9 +237,9 @@ function CameraAppThree() {
                📦
             </button>
 
-            {/* Captura normal */}
+            {/* Captura básica (sin 3D) */}
             <button
-               onClick={handleCapture}
+               onClick={handleBasicCapture}
                style={{
                   width: "70px",
                   height: "70px",
@@ -367,7 +317,7 @@ function CameraAppThree() {
                   </button>
 
                   <button
-                     onClick={handleSavePhoto}
+                     onClick={() => handleSavePhoto("jpeg")}
                      style={{
                         padding: "12px 24px",
                         backgroundColor: "#44ff44",
@@ -382,10 +332,7 @@ function CameraAppThree() {
                   </button>
 
                   <button
-                     onClick={() => {
-                        savePhotoAs(capturedPhoto, "png", 1.0);
-                        setCapturedPhoto(null);
-                     }}
+                     onClick={() => handleSavePhoto("png")}
                      style={{
                         padding: "12px 24px",
                         backgroundColor: "#4444ff",
