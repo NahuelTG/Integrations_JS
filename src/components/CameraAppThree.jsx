@@ -1,109 +1,42 @@
 // CameraApp.jsx
-
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import * as THREE from "three";
 
+import useThreeScene from "../hooks/useThreeScene.js";
 import useCamera from "../hooks/useCamera.js";
+import useCube from "../hooks/useCube.js";
 
 function CameraAppThree() {
-   const { isActive, videoRef, canvasRef, startCamera, stopCamera, capturePhoto, switchCamera, savePhoto, captureAndSave, savePhotoAs } =
-      useCamera();
+   const {
+      isActive,
+      videoRef,
+      canvasRef: captureCanvasRef,
+      startCamera,
+      stopCamera,
+      capturePhoto,
+      switchCamera,
+      savePhoto,
+      captureAndSave,
+      savePhotoAs,
+   } = useCamera();
+
+   const { threeCanvasRef, sceneRef, rendererRef, cameraRef, sceneReady, cleanup } = useThreeScene();
+
+   const { showCube, toggleCube } = useCube(sceneRef, rendererRef, cameraRef, sceneReady);
 
    const [capturedPhoto, setCapturedPhoto] = useState(null);
-   const [showCube, setShowCube] = useState(true);
-
-   // Referencias para Three.js
-   const threeCanvasRef = useRef(null);
-   const sceneRef = useRef(null);
-   const rendererRef = useRef(null);
-   const cubeRef = useRef(null);
-   const animationIdRef = useRef(null);
-
    const navigate = useNavigate();
 
    useEffect(() => {
       startCamera();
-   }, [startCamera]);
-
-   // Inicializar Three.js
-   useEffect(() => {
-      if (!threeCanvasRef.current) return;
-
-      // Crear escena
-      const scene = new THREE.Scene();
-      sceneRef.current = scene;
-
-      // Crear cámara (perspectiva)
-      const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-      camera.position.z = 5;
-
-      // Crear renderer
-      const renderer = new THREE.WebGLRenderer({
-         canvas: threeCanvasRef.current,
-         alpha: true, // Fondo transparente
-      });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setClearColor(0x000000, 0); // Transparente
-      rendererRef.current = renderer;
-
-      // Crear cubo
-      const geometry = new THREE.BoxGeometry(2, 2, 2);
-      const material = new THREE.MeshPhongMaterial({
-         color: 0x00ff88,
-         shininess: 100,
-         transparent: true,
-         opacity: 0.8,
-      });
-      const cube = new THREE.Mesh(geometry, material);
-      cubeRef.current = cube;
-      scene.add(cube);
-
-      // Agregar luces
-      const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
-      scene.add(ambientLight);
-
-      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-      directionalLight.position.set(1, 1, 1);
-      scene.add(directionalLight);
-
-      // Función de animación
-      const animate = () => {
-         animationIdRef.current = requestAnimationFrame(animate);
-
-         if (cubeRef.current) {
-            cubeRef.current.rotation.x += 0.01;
-            cubeRef.current.rotation.y += 0.01;
-         }
-
-         renderer.render(scene, camera);
-      };
-
-      animate();
-
-      // Manejar redimensionamiento
-      const handleResize = () => {
-         camera.aspect = window.innerWidth / window.innerHeight;
-         camera.updateProjectionMatrix();
-         renderer.setSize(window.innerWidth, window.innerHeight);
-      };
-
-      window.addEventListener("resize", handleResize);
-
-      // Cleanup
       return () => {
-         window.removeEventListener("resize", handleResize);
-         if (animationIdRef.current) {
-            cancelAnimationFrame(animationIdRef.current);
-         }
-         if (rendererRef.current) {
-            rendererRef.current.dispose();
-         }
+         cleanup();
       };
-   }, []);
+   }, [startCamera, cleanup]);
 
    const handleBackHome = () => {
-      stopCamera(); // ← Arreglé esto: faltaban los paréntesis
+      stopCamera();
       navigate("/");
    };
 
@@ -119,7 +52,7 @@ function CameraAppThree() {
          const saved = savePhoto(capturedPhoto);
          if (saved) {
             alert("¡Foto guardada exitosamente!");
-            setCapturedPhoto(null); // Cerrar modal
+            setCapturedPhoto(null);
          }
       }
    };
@@ -131,53 +64,44 @@ function CameraAppThree() {
       }
    };
 
-   const toggleCube = () => {
-      setShowCube(!showCube);
-      if (cubeRef.current) {
-         cubeRef.current.visible = !showCube;
-      }
-   };
-   // ✅ FUNCIÓN AVANZADA: Capturar CON el cubo 3D incluido
    const capturePhotoWith3D = () => {
-      if (!videoRef.current || !canvasRef.current || !rendererRef.current) {
+      if (!videoRef.current || !captureCanvasRef.current || !rendererRef.current) {
+         console.log("Referencias no disponibles para captura 3D");
          return null;
       }
 
       const video = videoRef.current;
-      const canvas = canvasRef.current;
+      const canvas = captureCanvasRef.current;
       const context = canvas.getContext("2d");
 
-      // Configurar canvas con dimensiones del video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // 1. Dibujar el video de fondo
       context.drawImage(video, 0, 0);
 
-      // 2. Si el cubo está visible, superponer el render de Three.js
-      if (showCube && rendererRef.current && sceneRef.current) {
-         // Crear canvas temporal para Three.js
-         const tempCanvas = document.createElement("canvas");
-         tempCanvas.width = video.videoWidth;
-         tempCanvas.height = video.videoHeight;
+      if (showCube && rendererRef.current && sceneRef.current && cameraRef.current) {
+         try {
+            const tempCanvas = document.createElement("canvas");
+            tempCanvas.width = video.videoWidth;
+            tempCanvas.height = video.videoHeight;
 
-         const tempRenderer = new THREE.WebGLRenderer({
-            canvas: tempCanvas,
-            alpha: true,
-         });
-         tempRenderer.setSize(video.videoWidth, video.videoHeight);
-         tempRenderer.setClearColor(0x000000, 0);
+            const tempRenderer = new THREE.WebGLRenderer({
+               canvas: tempCanvas,
+               alpha: true,
+            });
+            tempRenderer.setSize(video.videoWidth, video.videoHeight);
+            tempRenderer.setClearColor(0x000000, 0);
 
-         // Crear cámara temporal con las mismas proporciones
-         const tempCamera = new THREE.PerspectiveCamera(75, video.videoWidth / video.videoHeight, 0.1, 1000);
-         tempCamera.position.z = 5;
+            const tempCamera = new THREE.PerspectiveCamera(75, video.videoWidth / video.videoHeight, 0.1, 1000);
+            tempCamera.position.z = 5;
 
-         // Renderizar y superponer
-         tempRenderer.render(sceneRef.current, tempCamera);
-         context.drawImage(tempCanvas, 0, 0);
+            tempRenderer.render(sceneRef.current, tempCamera);
+            context.drawImage(tempCanvas, 0, 0);
 
-         // Limpiar
-         tempRenderer.dispose();
+            tempRenderer.dispose();
+         } catch (error) {
+            console.error("Error en captura 3D:", error);
+         }
       }
 
       return canvas.toDataURL("image/jpeg", 0.9);
@@ -229,16 +153,18 @@ function CameraAppThree() {
             >
                ← Atrás
             </button>
+
             <button
                onClick={toggleCube}
+               disabled={!sceneReady}
                style={{
                   padding: "12px 20px",
-                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  backgroundColor: sceneReady ? "rgba(0, 0, 0, 0.7)" : "rgba(100, 100, 100, 0.5)",
                   color: "white",
                   border: "none",
                   borderRadius: "25px",
                   fontSize: "16px",
-                  cursor: "pointer",
+                  cursor: sceneReady ? "pointer" : "not-allowed",
                }}
             >
                {showCube ? "🚫" : "📦"} {showCube ? "Ocultar" : "Mostrar"}
@@ -260,7 +186,27 @@ function CameraAppThree() {
             </button>
          </div>
 
-         {/* Video de la cámara - PANTALLA COMPLETA */}
+         {/* Indicador de estado de carga */}
+         {!sceneReady && (
+            <div
+               style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  color: "white",
+                  fontSize: "18px",
+                  zIndex: 15,
+                  backgroundColor: "rgba(0, 0, 0, 0.7)",
+                  padding: "20px",
+                  borderRadius: "10px",
+               }}
+            >
+               Cargando AR... 📦
+            </div>
+         )}
+
+         {/* Video de la cámara */}
          <video
             ref={videoRef}
             autoPlay
@@ -272,13 +218,13 @@ function CameraAppThree() {
                left: 0,
                width: "100%",
                height: "100%",
-               objectFit: "cover", // ← CLAVE: Mantiene proporción y llena la pantalla
+               objectFit: "cover",
                display: isActive ? "block" : "none",
                zIndex: 1,
             }}
          />
 
-         {/* Canvas de Three.js (cubo 3D) - NUEVO */}
+         {/* Canvas de Three.js - SEPARADO y SIEMPRE VISIBLE cuando sceneReady */}
          <canvas
             ref={threeCanvasRef}
             style={{
@@ -289,11 +235,11 @@ function CameraAppThree() {
                height: "100%",
                pointerEvents: "none",
                zIndex: 10,
-               display: showCube ? "block" : "none",
+               display: sceneReady ? "block" : "none", // Mostrar siempre que esté listo
             }}
          />
 
-         {/* Botones de captura - Parte inferior */}
+         {/* Botones de captura */}
          <div
             style={{
                position: "absolute",
@@ -306,7 +252,7 @@ function CameraAppThree() {
                alignItems: "center",
             }}
          >
-            {/* Botón captura rápida (captura y guarda directo) */}
+            {/* Captura rápida */}
             <button
                onClick={handleQuickSave}
                style={{
@@ -326,21 +272,22 @@ function CameraAppThree() {
             {/* Captura con cubo 3D */}
             <button
                onClick={handleCaptureWith3D}
+               disabled={!sceneReady}
                style={{
                   width: "50px",
                   height: "50px",
                   borderRadius: "50%",
-                  backgroundColor: "rgba(0, 255, 136, 0.3)",
-                  border: "2px solid #00ff88",
-                  cursor: "pointer",
+                  backgroundColor: sceneReady ? "rgba(0, 255, 136, 0.3)" : "rgba(100, 100, 100, 0.3)",
+                  border: `2px solid ${sceneReady ? "#00ff88" : "#666"}`,
+                  cursor: sceneReady ? "pointer" : "not-allowed",
                   fontSize: "20px",
-                  color: "#00ff88",
+                  color: sceneReady ? "#00ff88" : "#666",
                }}
             >
                📦
             </button>
 
-            {/* Botón captura normal */}
+            {/* Captura normal */}
             <button
                onClick={handleCapture}
                style={{
@@ -362,7 +309,7 @@ function CameraAppThree() {
          </div>
 
          {/* Canvas oculto para captura */}
-         <canvas ref={canvasRef} style={{ display: "none" }} />
+         <canvas ref={captureCanvasRef} style={{ display: "none" }} />
 
          {/* Modal de foto capturada */}
          {capturedPhoto && (
@@ -395,7 +342,15 @@ function CameraAppThree() {
                   }}
                />
 
-               <div style={{ marginTop: "20px", display: "flex", gap: "15px", flexWrap: "wrap", justifyContent: "center" }}>
+               <div
+                  style={{
+                     marginTop: "20px",
+                     display: "flex",
+                     gap: "15px",
+                     flexWrap: "wrap",
+                     justifyContent: "center",
+                  }}
+               >
                   <button
                      onClick={() => setCapturedPhoto(null)}
                      style={{

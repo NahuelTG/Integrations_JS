@@ -1,109 +1,79 @@
 // hooks/useCube.js
-import { useRef, useCallback, useState } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import * as THREE from "three";
 
-/**
- * Hook para manejar SOLO la creación y control del cubo
- * Principio SRP: Single Responsibility - Solo maneja el cubo
- */
-function useCube() {
+function useCube(sceneRef, rendererRef, cameraRef, sceneReady) {
+   const [showCube, setShowCube] = useState(true);
    const cubeRef = useRef(null);
-   const [isVisible, setIsVisible] = useState(true);
+   const animationIdRef = useRef(null);
 
-   // Crear el cubo
-   const createCube = useCallback((scene) => {
-      if (!scene) {
-         console.error("Scene is required to create cube");
-         return false;
-      }
+   useEffect(() => {
+      const scene = sceneRef.current;
 
-      try {
-         // Crear geometría del cubo
+      if (sceneReady && scene && !cubeRef.current) {
          const geometry = new THREE.BoxGeometry(2, 2, 2);
-
-         // Crear material del cubo
          const material = new THREE.MeshPhongMaterial({
-            color: 0x00ff88, // Verde
+            color: 0x00ff88,
             shininess: 100,
             transparent: true,
             opacity: 0.8,
          });
-
-         // Crear mesh del cubo
          const cube = new THREE.Mesh(geometry, material);
          cubeRef.current = cube;
-
-         // Agregar a la escena
          scene.add(cube);
-
-         console.log("Cube created and added to scene");
-         return true;
-      } catch (error) {
-         console.error("Error creating cube:", error);
-         return false;
       }
-   }, []);
+      return () => {
+         const cube = cubeRef.current;
 
-   // Mostrar/ocultar cubo
-   const toggleVisibility = useCallback(() => {
-      if (cubeRef.current) {
-         cubeRef.current.visible = !isVisible;
-         setIsVisible(!isVisible);
-      }
-   }, [isVisible]);
+         if (scene && cube) {
+            scene.remove(cube);
+            cube.geometry.dispose();
+            cube.material.dispose();
+            cubeRef.current = null;
+         }
+      };
+   }, [sceneReady, sceneRef]);
 
-   // Actualizar rotación del cubo (llamada desde animación)
-   const updateRotation = useCallback(() => {
+   const animate = useCallback(() => {
+      animationIdRef.current = requestAnimationFrame(animate);
+
       if (cubeRef.current) {
          cubeRef.current.rotation.x += 0.01;
          cubeRef.current.rotation.y += 0.01;
       }
-   }, []);
 
-   // Remover cubo de la escena
-   const removeCube = useCallback((scene) => {
-      if (cubeRef.current && scene) {
-         scene.remove(cubeRef.current);
-
-         // Limpiar geometría y material
-         if (cubeRef.current.geometry) {
-            cubeRef.current.geometry.dispose();
-         }
-         if (cubeRef.current.material) {
-            cubeRef.current.material.dispose();
-         }
-
-         cubeRef.current = null;
-         console.log("Cube removed and cleaned up");
+      if (rendererRef.current && sceneRef.current && cameraRef.current) {
+         rendererRef.current.render(sceneRef.current, cameraRef.current);
       }
-   }, []);
+   }, [rendererRef, sceneRef, cameraRef]);
 
-   // Obtener posición actual del cubo
-   const getCubePosition = useCallback(() => {
-      return cubeRef.current ? cubeRef.current.position : null;
-   }, []);
-
-   // Cambiar color del cubo
-   const changeCubeColor = useCallback((hexColor) => {
-      if (cubeRef.current && cubeRef.current.material) {
-         cubeRef.current.material.color.setHex(hexColor);
+   useEffect(() => {
+      if (cubeRef.current && sceneReady && !animationIdRef.current) {
+         animate();
       }
+
+      return () => {
+         if (animationIdRef.current) {
+            cancelAnimationFrame(animationIdRef.current);
+            animationIdRef.current = null;
+         }
+      };
+   }, [sceneReady, animate]);
+
+   const toggleCube = useCallback(() => {
+      setShowCube((prev) => {
+         const newShowCube = !prev;
+         if (cubeRef.current) {
+            cubeRef.current.visible = newShowCube;
+         }
+         return newShowCube;
+      });
    }, []);
 
    return {
-      // Estado
-      isVisible,
-
-      // Referencia
+      showCube,
+      toggleCube,
       cubeRef,
-
-      // Funciones de control
-      createCube,
-      toggleVisibility,
-      updateRotation,
-      removeCube,
-      getCubePosition,
-      changeCubeColor,
    };
 }
 
