@@ -1,44 +1,25 @@
 // hooks/useMindarThree.js
 import { useState, useEffect, useRef } from "react";
-import * as THREE from "three";
-import { MindARThree } from "mind-ar/dist/mindar-image-three.prod.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as THREE from "three";
+
+import useCameraMind from "./useCameraMind.js";
 
 function useMindarThree(modelPath, targetPath) {
-   const [loading, setLoading] = useState(true);
-   const [isTracking, setIsTracking] = useState(false);
-   const [error, setError] = useState(null);
+   const [modelLoaded, setModelLoaded] = useState(false);
+   const [modelError, setModelError] = useState(null);
 
-   // Referencias
-   const sceneRef = useRef(null);
-   const mindarRef = useRef(null);
    const modelRef = useRef(null);
    const mixerRef = useRef(null);
    const clockRef = useRef(new THREE.Clock());
 
+   const { loading: cameraLoading, isTracking, error: cameraError, sceneRef, getAnchor, getThreeJS } = useCameraMind(targetPath);
+
    useEffect(() => {
-      if (!modelPath || !targetPath || !sceneRef.current) return;
+      if (!modelPath || cameraLoading) return;
 
-      let cleanup = null;
-
-      const init = async () => {
+      const loadModel = async () => {
          try {
-            // Crear instancia de MindAR
-            const mindar = new MindARThree({
-               container: sceneRef.current,
-               imageTargetSrc: targetPath,
-            });
-
-            mindarRef.current = mindar;
-            const { renderer, scene, camera } = mindar;
-
-            // Luces básicas
-            scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.7);
-            directionalLight.position.set(1, 1, 1);
-            scene.add(directionalLight);
-
-            // Cargar modelo
             const loader = new GLTFLoader();
             const gltf = await new Promise((resolve, reject) => {
                loader.load(modelPath, resolve, undefined, reject);
@@ -51,7 +32,6 @@ function useMindarThree(modelPath, targetPath) {
 
             modelRef.current = model;
 
-            // Configurar animaciones
             if (gltf.animations.length > 0) {
                mixerRef.current = new THREE.AnimationMixer(model);
                gltf.animations.forEach((clip) => {
@@ -60,52 +40,76 @@ function useMindarThree(modelPath, targetPath) {
                });
             }
 
-            // Crear anchor y eventos
-            const anchor = mindar.addAnchor(0);
-            anchor.group.add(model);
-
-            anchor.onTargetFound = () => {
-               model.visible = true;
-               setIsTracking(true);
-            };
-
-            anchor.onTargetLost = () => {
-               model.visible = false;
-               setIsTracking(false);
-            };
-
-            // Iniciar MindAR
-            await mindar.start();
-
-            // Loop de renderizado
-            renderer.setAnimationLoop(() => {
-               const delta = clockRef.current.getDelta();
-
-               if (model.visible && mixerRef.current) {
-                  mixerRef.current.update(delta);
-               }
-
-               renderer.render(scene, camera);
-            });
-
-            setLoading(false);
-
-            // Función de limpieza
-            cleanup = () => {
-               renderer.setAnimationLoop(null);
-               mindar.stop();
-            };
+            setModelLoaded(true);
          } catch (err) {
-            console.error("Error inicializando MindAR:", err);
-            setError(err.message);
-            setLoading(false);
+            console.error("Error cargando modelo:", err);
+            setModelError(err.message);
          }
       };
 
-      init();
+      loadModel();
+   }, [modelPath, cameraLoading]);
 
-      return () => cleanup?.();
-   }, [modelPath, targetPath]);
+   useEffect(() => {
+      if (!modelLoaded || !modelRef.current) return;
+
+      const anchor = getAnchor();
+      if (!anchor) return;
+
+      const model = modelRef.current;
+
+      anchor.group.add(model);
+
+      const originalTargetFound = anchor.onTargetFound;
+      const originalTargetLost = anchor.onTargetLost;
+
+      anchor.onTargetFound = () => {
+         model.visible = true;
+         if (originalTargetFound) originalTargetFound();
+      };
+
+      anchor.onTargetLost = () => {
+         model.visible = false;
+         if (originalTargetLost) originalTargetLost();
+      };
+
+      return () => {
+         anchor.group.remove(model);
+      };
+   }, [modelLoaded, getAnchor]);
+
+   // Loop de animación del modelo
+   useEffect(() => {
+      if (!modelLoaded || !mixerRef.current) return;
+
+      const threeJS = getThreeJS();
+      if (!threeJS) return;
+
+      const { renderer } = threeJS;
+      const originalAnimationLoop = renderer.getAnimationLoop();
+
+      // Extender el loop de animación para incluir el modelo
+      renderer.setAnimationLoop(() => {
+         const delta = clockRef.current.getDelta();
+
+         if (modelRef.current?.visible && mixerRef.current) {
+            mixerRef.current.update(delta);
+         }
+
+         // Ejecutar el loop original
+         if (originalAnimationLoop) {
+            originalAnimationLoop();
+         }
+      });
+
+      return () => {
+         renderer.setAnimationLoop(originalAnimationLoop);
+      };
+   }, [modelLoaded, getThreeJS]);
+
+   // Estados combinados
+   const loading = cameraLoading || !modelLoaded;
+   const error = cameraError || modelError;
 
    return {
       loading,
