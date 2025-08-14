@@ -63,7 +63,7 @@ const ARSurfaceDetection = () => {
       }
    };
 
-   const initializeScene = () => {
+   const initializeScene = async () => {
       // Scene setup
       const scene = new THREE.Scene();
       sceneRef.current = scene;
@@ -71,12 +71,55 @@ const ARSurfaceDetection = () => {
       // Camera (WebXR will handle this)
       const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 
-      // Renderer with XR support
+      // Create canvas and get WebGL context
+      const canvas = document.createElement("canvas");
+      let gl;
+
+      try {
+         gl = canvas.getContext("webgl2", {
+            antialias: true,
+            alpha: true,
+            powerPreference: "high-performance",
+            xrCompatible: true, // CRÍTICO: Marca el contexto como XR compatible
+         });
+
+         if (!gl) {
+            gl = canvas.getContext("webgl", {
+               antialias: true,
+               alpha: true,
+               powerPreference: "high-performance",
+               xrCompatible: true,
+            });
+         }
+
+         if (!gl) {
+            throw new Error("No se pudo crear contexto WebGL");
+         }
+
+         addDebugInfo("Contexto WebGL creado: " + (gl.constructor.name.includes("2") ? "WebGL2" : "WebGL1"));
+      } catch (contextError) {
+         addDebugInfo("Error creando contexto WebGL: " + contextError.message);
+         throw contextError;
+      }
+
+      // Make context XR compatible
+      try {
+         await gl.makeXRCompatible();
+         addDebugInfo("✅ Contexto marcado como XR compatible");
+      } catch (xrError) {
+         addDebugInfo("❌ Error marcando contexto XR compatible: " + xrError.message);
+         throw xrError;
+      }
+
+      // Renderer with XR support using the XR-compatible context
       const renderer = new THREE.WebGLRenderer({
+         canvas: canvas,
+         context: gl,
          antialias: true,
          alpha: true,
          powerPreference: "high-performance",
       });
+
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.xr.enabled = true;
       renderer.shadowMap.enabled = true;
@@ -247,8 +290,15 @@ const ARSurfaceDetection = () => {
             renderer.dispose();
          });
       } catch (err) {
-         setError("Error iniciando sesión AR: " + err.message);
-         addDebugInfo("Error: " + err.message);
+         let errorMessage = "Error iniciando sesión AR: " + err.message;
+
+         if (err.message.includes("WebGL") || err.message.includes("XR compatible")) {
+            errorMessage +=
+               "\n\nPosibles soluciones:\n• Reinicia el navegador\n• Verifica que WebGL esté habilitado\n• Prueba en modo incógnito\n• Asegúrate de estar en HTTPS";
+         }
+
+         setError(errorMessage);
+         addDebugInfo("❌ Error fatal: " + err.message);
          console.error("AR Error:", err);
       }
    };
