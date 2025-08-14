@@ -126,6 +126,10 @@ const ARSurfaceDetection = () => {
       renderer.shadowMap.type = THREE.PCFSoftShadowMap;
       rendererRef.current = renderer;
 
+      addDebugInfo("✅ Renderer Three.js creado");
+      addDebugInfo("Renderer type: " + renderer.constructor.name);
+      addDebugInfo("Renderer tiene getContext: " + (typeof renderer.getContext === "function"));
+
       // Mount renderer
       if (mountRef.current) {
          mountRef.current.appendChild(renderer.domElement);
@@ -145,7 +149,14 @@ const ARSurfaceDetection = () => {
       // Create reticle (surface indicator)
       createReticle();
 
+      // Final verification before returning
+      if (!renderer || typeof renderer.getContext !== "function") {
+         throw new Error("Renderer no se creó correctamente o no tiene getContext");
+      }
+
       addDebugInfo("✅ Escena inicializada correctamente");
+      addDebugInfo("Retornando: scene, camera, renderer");
+
       return { scene, camera, renderer };
    };
 
