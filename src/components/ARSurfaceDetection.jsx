@@ -145,10 +145,16 @@ const ARSurfaceDetection = () => {
       // Create reticle (surface indicator)
       createReticle();
 
+      addDebugInfo("✅ Escena inicializada correctamente");
       return { scene, camera, renderer };
    };
 
    const createReticle = () => {
+      if (!sceneRef.current) {
+         console.warn("Scene not ready for reticle creation");
+         return;
+      }
+
       const geometry = new THREE.RingGeometry(0.15, 0.2, 32).rotateX(-Math.PI / 2);
       const material = new THREE.MeshBasicMaterial({
          color: 0x00ff00,
@@ -160,6 +166,8 @@ const ARSurfaceDetection = () => {
       reticle.visible = false;
       reticleRef.current = reticle;
       sceneRef.current.add(reticle);
+
+      addDebugInfo("✅ Reticle creado");
 
       // Add pulsing animation
       const animate = () => {
