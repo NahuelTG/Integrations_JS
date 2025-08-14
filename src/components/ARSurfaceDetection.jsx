@@ -1,5 +1,5 @@
 // ARSurfaceDetection.jsx
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 const ARSurfaceDetection = () => {
@@ -15,6 +15,12 @@ const ARSurfaceDetection = () => {
    const [isARActive, setIsARActive] = useState(false);
    const [surfaceDetected, setSurfaceDetected] = useState(false);
    const [error, setError] = useState("");
+   const [debugInfo, setDebugInfo] = useState("");
+
+   const addDebugInfo = (info) => {
+      setDebugInfo((prev) => prev + "\n" + info);
+      console.log("Debug:", info);
+   };
 
    useEffect(() => {
       checkARSupport();
@@ -32,6 +38,22 @@ const ARSurfaceDetection = () => {
             setIsARSupported(supported);
             if (!supported) {
                setError("Tu dispositivo no soporta WebXR AR. Usa Chrome en Android o Safari en iOS 15+");
+            } else {
+               // Check specific features
+               console.log("🔍 Verificando características AR...");
+
+               // Test hit-test support
+               try {
+                  const testSession = await navigator.xr.requestSession("immersive-ar", {
+                     requiredFeatures: ["hit-test"],
+                  });
+                  await testSession.end();
+                  console.log("✅ Hit-test soportado");
+               } catch (e) {
+                  console.log("❌ Hit-test no soportado" + e);
+                  setError("Tu dispositivo no soporta hit-test. Necesitas Chrome 81+ en Android con ARCore.");
+                  return;
+               }
             }
          } catch (err) {
             setError("Error verificando soporte AR: " + err.message);
@@ -110,11 +132,26 @@ const ARSurfaceDetection = () => {
       try {
          const { renderer } = initializeScene();
 
-         const session = await navigator.xr.requestSession("immersive-ar", {
-            requiredFeatures: ["hit-test", "plane-detection"],
-            optionalFeatures: ["dom-overlay"],
-            domOverlay: { root: document.body },
-         });
+         // Try with plane-detection first, then fallback to just hit-test
+         let session;
+         try {
+            session = await navigator.xr.requestSession("immersive-ar", {
+               requiredFeatures: ["hit-test"],
+               optionalFeatures: ["plane-detection", "dom-overlay"],
+               domOverlay: { root: document.body },
+            });
+            console.log("✅ AR Session iniciada con hit-test");
+         } catch (firstError) {
+            console.log("⚠️ Fallback: Intentando sin plane-detection..." + firstError);
+            addDebugInfo("Fallback: sin plane-detection");
+            session = await navigator.xr.requestSession("immersive-ar", {
+               requiredFeatures: ["hit-test"],
+               optionalFeatures: ["dom-overlay"],
+               domOverlay: { root: document.body },
+            });
+            console.log("✅ AR Session iniciada (modo compatibilidad)");
+            addDebugInfo("AR Session: modo compatibilidad");
+         }
 
          sessionRef.current = session;
          session.updateRenderState({
@@ -124,9 +161,28 @@ const ARSurfaceDetection = () => {
          // Get reference space
          const referenceSpace = await session.requestReferenceSpace("local");
 
-         // Setup hit test source for plane detection
+         // Setup hit test source for surface detection
          const viewerSpace = await session.requestReferenceSpace("viewer");
-         hitTestSourceRef.current = await session.requestHitTestSource({ space: viewerSpace });
+
+         try {
+            hitTestSourceRef.current = await session.requestHitTestSource({ space: viewerSpace });
+            console.log("✅ Hit test source creado");
+         } catch (hitTestError) {
+            console.log("⚠️ Error creando hit test source:", hitTestError);
+            // Try alternative hit test setup
+            try {
+               const localSpace = await session.requestReferenceSpace("local");
+               hitTestSourceRef.current = await session.requestHitTestSource({
+                  space: localSpace,
+                  offsetRay: new XRRay({ x: 0, y: 0, z: 0 }, { x: 0, y: -1, z: 0 }),
+               });
+               console.log("✅ Hit test source creado (método alternativo)");
+            } catch (fallbackError) {
+               console.error("❌ No se pudo crear hit test source:", fallbackError);
+               setError("Tu dispositivo no soporta detección de superficies");
+               return;
+            }
+         }
 
          setIsARActive(true);
 
@@ -139,19 +195,37 @@ const ARSurfaceDetection = () => {
 
                if (hitTestResults.length > 0) {
                   const hit = hitTestResults[0];
-                  const pose = hit.getPose(referenceSpace);
 
-                  if (pose && reticleRef.current) {
-                     reticleRef.current.visible = true;
-                     reticleRef.current.position.setFromMatrixPosition(new THREE.Matrix4().fromArray(pose.transform.matrix));
-                     reticleRef.current.quaternion.setFromRotationMatrix(new THREE.Matrix4().fromArray(pose.transform.matrix));
-                     setSurfaceDetected(true);
+                  try {
+                     const pose = hit.getPose(referenceSpace);
+
+                     if (pose && reticleRef.current) {
+                        const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix);
+                        reticleRef.current.visible = true;
+                        reticleRef.current.position.setFromMatrixPosition(matrix);
+                        reticleRef.current.quaternion.setFromRotationMatrix(matrix);
+                        setSurfaceDetected(true);
+                     }
+                  } catch (poseError) {
+                     console.log("Error obteniendo pose:", poseError);
                   }
                } else {
                   if (reticleRef.current) {
                      reticleRef.current.visible = false;
                   }
                   setSurfaceDetected(false);
+               }
+            } else {
+               // Fallback: show reticle at fixed distance
+               if (reticleRef.current) {
+                  const camera = renderer.xr.getCamera();
+                  const direction = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                  const position = camera.position.clone().add(direction.multiplyScalar(1.5));
+                  position.y -= 0.5; // Lower it a bit
+
+                  reticleRef.current.position.copy(position);
+                  reticleRef.current.visible = true;
+                  setSurfaceDetected(true);
                }
             }
 
@@ -174,6 +248,7 @@ const ARSurfaceDetection = () => {
          });
       } catch (err) {
          setError("Error iniciando sesión AR: " + err.message);
+         addDebugInfo("Error: " + err.message);
          console.error("AR Error:", err);
       }
    };
@@ -320,6 +395,15 @@ const ARSurfaceDetection = () => {
                   <div className={`surface-indicator ${surfaceDetected ? "detected" : "scanning"}`}>
                      {surfaceDetected ? "✅ Superficie detectada - Toca para colocar objetos" : "🔍 Escaneando superficies..."}
                   </div>
+
+                  {debugInfo && (
+                     <div className="debug-info">
+                        <details>
+                           <summary>🔧 Debug Info</summary>
+                           <pre>{debugInfo}</pre>
+                        </details>
+                     </div>
+                  )}
                </div>
 
                <div className="ar-controls">
@@ -491,8 +575,27 @@ const ARSurfaceDetection = () => {
                cursor: not-allowed;
             }
 
-            .ar-stop-btn:hover {
-               background: rgba(214, 48, 49, 0.9) !important;
+            .debug-info {
+               background: rgba(0, 0, 0, 0.7);
+               color: #00ff00;
+               padding: 0.5rem;
+               border-radius: 5px;
+               margin-top: 0.5rem;
+               font-family: monospace;
+               font-size: 0.8rem;
+            }
+
+            .debug-info pre {
+               margin: 0;
+               white-space: pre-wrap;
+               max-height: 100px;
+               overflow-y: auto;
+            }
+
+            .debug-info summary {
+               cursor: pointer;
+               color: white;
+               font-weight: bold;
             }
          `}</style>
       </div>
