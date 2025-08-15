@@ -23,7 +23,7 @@ export const Home = () => {
             <button onClick={HandleCamera}>Probar Camara</button>
             <button onClick={HandleCameraThree}>Probar Camara Three</button>
             <button onClick={HandleCameraMind}>Probar Camara Mind</button>
-            <button onClick={HandleCameraSurface}>Probar Camara Surface</button>
+            <button onClick={HandleCameraSurface}>Probar Camara WebXR</button>
          </section>
       </>
    );
