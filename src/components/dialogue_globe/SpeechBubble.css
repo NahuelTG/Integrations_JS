@@ -1,0 +1,76 @@
+.bubble-container {
+   display: flex;
+   margin-bottom: 16px;
+}
+
+.bubble-container.left {
+   justify-content: flex-start;
+}
+
+.bubble-container.right {
+   justify-content: flex-end;
+}
+
+.bubble-wrapper {
+   max-width: 300px;
+}
+
+.bubble-character {
+   font-size: 14px;
+   font-weight: bold;
+   margin-bottom: 4px;
+}
+
+.speech-bubble {
+   position: relative;
+   background: #ffffff;
+   border: 2px solid #ccc;
+   border-radius: 16px;
+   padding: 12px 18px;
+   font-size: 16px;
+   line-height: 1.4;
+   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+   color: black;
+}
+
+/* Punta lado izquierdo */
+.speech-bubble.left::after {
+   content: "";
+   position: absolute;
+   bottom: -12px;
+   left: 30px;
+   border-width: 12px 12px 0;
+   border-style: solid;
+   border-color: #ffffff transparent transparent transparent;
+}
+
+.speech-bubble.left::before {
+   content: "";
+   position: absolute;
+   bottom: -14px;
+   left: 29px;
+   border-width: 14px 14px 0;
+   border-style: solid;
+   border-color: #ccc transparent transparent transparent;
+}
+
+/* Punta lado derecho */
+.speech-bubble.right::after {
+   content: "";
+   position: absolute;
+   bottom: -12px;
+   right: 30px;
+   border-width: 12px 12px 0;
+   border-style: solid;
+   border-color: #ffffff transparent transparent transparent;
+}
+
+.speech-bubble.right::before {
+   content: "";
+   position: absolute;
+   bottom: -14px;
+   right: 29px;
+   border-width: 14px 14px 0;
+   border-style: solid;
+   border-color: #ccc transparent transparent transparent;
+}
