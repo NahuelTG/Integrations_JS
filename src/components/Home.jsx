@@ -15,6 +15,9 @@ export const Home = () => {
    const HandleCameraSurface = () => {
       navigate("/camera_surface");
    };
+   const HandleContadorStore = () => {
+      navigate("/contador");
+   };
 
    return (
       <>
@@ -24,6 +27,7 @@ export const Home = () => {
             <button onClick={HandleCameraThree}>Probar Camara Three</button>
             <button onClick={HandleCameraMind}>Probar Camara Mind</button>
             <button onClick={HandleCameraSurface}>Probar Camara WebXR</button>
+            <button onClick={HandleContadorStore}>Contador</button>
          </section>
       </>
    );
