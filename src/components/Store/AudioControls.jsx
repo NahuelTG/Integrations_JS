@@ -7,6 +7,7 @@ const AudioControls = () => {
    const handleChangeAudio = () => {
       const newSrc = src === "/demo.mp3" ? "/demo_2.mp3" : "/demo.mp3";
       setSrc(newSrc);
+      stopAudio();
    };
 
    return (
